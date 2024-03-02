@@ -199,7 +199,7 @@ class EarlyStopping:
         '''
         self.counter = 0
 
-    def early_stop(self, model, validation_loss):
+    def early_stop(self, model, validation_loss, epoch, config):
         ''' function to check for the early stopping threshold
             arguments:
                 model: the torch model
@@ -208,6 +208,7 @@ class EarlyStopping:
         if validation_loss < self.min_validation_loss:
             self.min_validation_loss = validation_loss
             torch.save(model.state_dict(), self.m_path)
+            config['n_training_epochs'] = epoch
             self.counter = 0
         elif validation_loss > (self.min_validation_loss + self.min_delta):
             self.counter += 1
@@ -263,6 +264,19 @@ class skip_block(torch.nn.Module):
 
             return self.act(y)
         
+        
+def getActivation(config):
+    if config["activation"] == 'leaky_relu':
+        return torch.nn.LeakyReLU()
+    elif config["activation"] == 'relu':
+        return torch.nn.ReLU()
+    if config["activation"] == 'softplus':
+        return torch.nn.Softplus()
+    if config["activation"] == 'swish':
+        return torch.nn.SiLU()
+    if config["activation"] == 'sigmoid':
+        return torch.nn.Sigmoid()
+        
     
     
 class skip_dnn(torch.nn.Module):
@@ -274,15 +288,7 @@ class skip_dnn(torch.nn.Module):
         self.n_blocks = config["depth"] - 1
         self.input_shape = config["input_shape"]
         self.stream = stream
-        
-        if config["activation"] == 'leaky_relu':
-            self.act = torch.nn.LeakyReLU()
-        elif config["activation"] == 'relu':
-            self.act = torch.nn.ReLU()
-        if config["activation"] == 'softplus':
-            self.act = torch.nn.Softplus()
-        if config["activation"] == 'swish':
-            self.act = torch.nn.SiLU()
+        self.act = getActivation(config)
         
         self.input = skip_block(self.input_shape, self.width, self.act, stream=self.stream)
         self.core = self.make_layers(skip_block)
@@ -317,15 +323,7 @@ class dnn(torch.nn.Module):
         self.input = torch.nn.Linear(config["input_shape"], self.width)
         self.fc_module = torch.nn.ModuleList([torch.nn.Linear(self.width, self.width) for i in range(config["depth"] - 1)])
         self.output = torch.nn.Linear(self.width, 1)
-        
-        if config["activation"] == 'leaky_relu':
-            self.act = torch.nn.LeakyReLU()
-        elif config["activation"] == 'relu':
-            self.act = torch.nn.ReLU()
-        if config["activation"] == 'softplus':
-            self.act = torch.nn.Softplus()
-        if config["activation"] == 'swish':
-            self.act = torch.nn.SiLU()
+        self.act = getActivation(config)
         
     def forward(self, x):
         x = self.act(self.input(x))
@@ -574,8 +572,14 @@ def runML(df, config):
         
         logging.info(f' Epoch {epoch + 1}: training loss = {avg_loss:.8f}  validation loss = {avg_vloss:.8f}  learning rate = {optimizer.param_groups[0]["lr"]:0.3e}  relative accuracy: {abs_score:.2f}  R2 score: {r2_score:.2f}')
         
+        # pass information to config
+        config['final_decayed_lr'] = optimizer.param_groups[0]["lr"]
+        config['final_validation_r2'] = r2_score
+        config['final_validation_loss'] = avg_vloss
+        config['last_epoch'] = epoch
+        
         # check for early stopping
-        if early_stopping.early_stop(regressor, avg_vloss):
+        if early_stopping.early_stop(regressor, avg_vloss, epoch, config):
             regressor.load_state_dict(torch.load(model_path))
             break
 
@@ -620,12 +624,12 @@ def plot_loss(history, dir_name):
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(dir_name+'/training-evaluation.pdf', dpi=300)
-    plt.show()
     plt.close()
     
     
 def labeler(config) -> str:
     return '{}-{} ({:,})'.format(config['depth'], config['width'], config['trainable_parameters'])
+
 
 def make_error_plot(config, df):
     lim = df['delta'].std()*5
