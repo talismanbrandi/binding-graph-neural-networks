@@ -21,6 +21,7 @@ from matplotlib import rc
 
 rc('text', usetex=True)
 plt.rcParams['text.latex.preamble'] = ''
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
 CLIP = 1e6
 
@@ -228,6 +229,14 @@ class skip_block(torch.nn.Module):
             res: the skip net block
     """
     def __init__(self, input_shape, width, activation, stream = False, n_layers=1):
+        ''' init function
+            arguments:
+                input_shape: the input shape of the block
+                width: the width of the block
+                activation: the activation function
+                stream: build a residual stream or not (default: false)
+                n_layers: the number of layers in the block (default: 1)
+        '''
         super(skip_block, self).__init__()
         self.input_shape = input_shape
         self.width = width
@@ -247,6 +256,8 @@ class skip_block(torch.nn.Module):
         self.act = activation
         
     def forward(self, x):
+        ''' forward propagation
+        '''
         y = self.act(self.input(x))
         for l in self.fc_module:
             y = self.act(l(y))
@@ -266,6 +277,12 @@ class skip_block(torch.nn.Module):
         
         
 def getActivation(config):
+    ''' function for defining the activation function
+        argument:
+            config: the configurations file
+        returns
+            the specified activations function
+    '''
     if config["activation"] == 'leaky_relu':
         return torch.nn.LeakyReLU()
     elif config["activation"] == 'relu':
@@ -377,6 +394,20 @@ def lp_loss(p, model):
 
 
 def train_one_epoch(model, train_data, f_optimizer, f_loss, max_steps, alpha = 0, beta = 0):
+    ''' function for the training epoch
+        arguments:
+            model: the pytorch model to nbe trained
+            train_data: the training data loader 
+            f_optimizer: the optimizer
+            f_loss: the loss function
+            max_steps: the maximum number of steps in an epoch
+            alpha: the weight of the L1 regulatization (default: 0)
+            beta: the weight of the L2 regularization (default: 0)
+        returns:
+            the loss for the epoch
+        loss function: 
+            loss + beta * (alpha * lp_loss(1, model) + (1 - alpha) * lp_loss(2, model))
+    '''
     epoch_loss = 0.
 
     for i, data in enumerate(train_data):
@@ -404,6 +435,19 @@ def train_one_epoch(model, train_data, f_optimizer, f_loss, max_steps, alpha = 0
     return epoch_loss/(i + 1)
 
 def validate_one_epoch(model, validate_data, f_loss, max_steps, alpha = 0, beta = 0):
+    ''' function for the validation epoch
+        arguments:
+            model: the pytorch model to nbe trained
+            validate_data: the validation data loader 
+            f_loss: the loss function
+            max_steps: the maximum number of steps in an epoch
+            alpha: the weight of the L1 regulatization (default: 0)
+            beta: the weight of the L2 regularization (default: 0)
+        returns:
+            the loss for the epoch
+            the absolute error
+            the R2 score
+    '''
     epoch_loss = 0.
     
     for i, data in enumerate(validate_data):
@@ -436,6 +480,15 @@ def validate_one_epoch(model, validate_data, f_loss, max_steps, alpha = 0, beta 
 
 
 def test_model(model, test_data, config):
+    ''' function for testing the model
+        arguments:
+            model: the pytorch model to nbe trained
+            test_data: the test data loader
+            config: the configurations file
+        returns:
+            the absolute error
+            the R2 score
+    '''
     
     for i, data in enumerate(test_data):
         

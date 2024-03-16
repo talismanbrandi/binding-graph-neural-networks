@@ -1,0 +1,14 @@
+#!/bin/bash
+
+module load python/3.10
+python3.10 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install wheel==0.37.1
+pip install -r ../requirements.txt
+deactivate
+uuid=`uuidgen`
+sed -e "s/\"UUID\"/\"${uuid::8}\"/" config-in.json > config-${uuid::8}.json
+sed -e "s/UUID/${uuid::8}/" sbatch-in.sh > sbatch.sh
+sbatch sbatch.sh
+module unload python/3.10
