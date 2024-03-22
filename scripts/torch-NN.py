@@ -304,6 +304,7 @@ class skip_dnn(torch.nn.Module):
         self.width = config["width"]
         self.n_blocks = config["depth"] - 1
         self.input_shape = config["input_shape"]
+        self.n_layers = config["skip_block_layers"]
         self.stream = stream
         self.act = getActivation(config)
         
@@ -318,9 +319,9 @@ class skip_dnn(torch.nn.Module):
         layers = []
         for bl in range(self.n_blocks):
             if self.stream: 
-                layers.append(skip_block(self.input_shape, self.width, self.act, stream=self.stream))
+                layers.append(skip_block(self.input_shape, self.width, self.act, stream=self.stream, n_layers=self.n_layers))
             else:
-                layers.append(skip_block(self.width, self.width, self.act))
+                layers.append(skip_block(self.width, self.width, self.act, n_layers=self.n_layers))
             
         return torch.nn.Sequential(*layers)
         

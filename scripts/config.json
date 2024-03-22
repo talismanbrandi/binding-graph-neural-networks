@@ -8,6 +8,7 @@
     "activation": "relu",
     "width": 300,
     "depth": 20,
+    "skip_block_layers": 3,
     "beta": 0.001,
     "alpha": 0.001,
     "scaled": "none",

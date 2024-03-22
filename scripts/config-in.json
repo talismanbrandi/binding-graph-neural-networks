@@ -1,13 +1,14 @@
 {
     "model_type": "skip",
-    "cell_line": "K562_HepG2",
+    "cell_line": "K562",
     "exon_buffer": "100",
     "data_dir": "../data/",
     "seed": 42,
     "var_y": "target",
     "activation": "leaky_relu",
     "width": 900,
-    "depth": 30,
+    "depth": 20,
+    "skip_block_layers": 3,
     "beta": 0,
     "alpha": 0,
     "scaled": "none",
@@ -27,5 +28,5 @@
     "base_directory": "../models/",
     "epochs": 5000,
     "model-uuid": "UUID",
-    "annotate_cell_lines": true
+    "annotate_cell_lines": false
 }
